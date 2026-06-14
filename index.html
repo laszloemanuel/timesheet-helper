@@ -1,0 +1,591 @@
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>TimeSheet Segéd</title>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
+<style>
+  :root{
+    --bg:#f6f7f9; --panel:#ffffff; --ink:#1d2330; --muted:#6b7280;
+    --line:#e3e6eb; --accent:#2f6df6; --accent-soft:#e8f0ff;
+    --warn:#b8860b; --good:#0a8f56; --suggest:#fff7e0; --suggest-line:#e8d480;
+    --row-alt:#fbfcfe; --shadow:0 1px 2px rgba(16,24,40,.06),0 1px 3px rgba(16,24,40,.10);
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
+  header{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 20px;
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:30}
+  header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:-.2px}
+  header h1 .dot{color:var(--accent)}
+  .grow{flex:1}
+  .status{font-size:12.5px;color:var(--muted)}
+  .status b{color:var(--ink)}
+  button{font:inherit;border:1px solid var(--line);background:#fff;color:var(--ink);
+    padding:7px 13px;border-radius:8px;cursor:pointer;transition:.12s;font-weight:550}
+  button:hover{border-color:#c4cad4;background:#fafbfc}
+  button:disabled{opacity:.5;cursor:not-allowed}
+  button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+  button.primary:hover{background:#2a62dd}
+  button.ghost{background:transparent;border-color:transparent;color:var(--muted)}
+  button.ghost:hover{background:#eef0f3;color:var(--ink)}
+  button.sm{padding:4px 9px;font-size:12.5px;border-radius:7px}
+  main{padding:18px 20px 80px;max-width:1500px;margin:0 auto}
+  .bar{display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;background:var(--panel);
+    border:1px solid var(--line);border-radius:12px;padding:14px 16px;box-shadow:var(--shadow);margin-bottom:16px}
+  .field{display:flex;flex-direction:column;gap:4px}
+  .field label{font-size:11.5px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.3px}
+  input,select{font:inherit;border:1px solid var(--line);border-radius:8px;padding:7px 9px;background:#fff;color:var(--ink)}
+  input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+  input[type=date]{min-width:140px}
+  .chiprow{display:flex;gap:7px;flex-wrap:wrap}
+  .chip{font-size:11.5px;background:#eef1f5;border-radius:20px;padding:3px 10px;color:#475067;border:1px solid #e0e4ea}
+  .tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+  table{border-collapse:collapse;width:100%}
+  th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
+  thead th{position:sticky;top:64px;background:#f3f5f8;font-size:11.5px;text-transform:uppercase;
+    letter-spacing:.3px;color:#5b6373;font-weight:650;z-index:10}
+  tbody tr:nth-child(even){background:var(--row-alt)}
+  tbody tr:hover{background:#f0f5ff}
+  td.num{text-align:right;font-variant-numeric:tabular-nums}
+  td .desc{border:1px solid transparent;background:transparent;width:100%;min-width:240px;padding:5px 7px;border-radius:6px}
+  td .desc:hover{border-color:var(--line)}
+  td .hrs{width:74px;text-align:right;font-variant-numeric:tabular-nums}
+  td .notes{width:140px;border:1px solid transparent;background:transparent;padding:5px 7px;border-radius:6px}
+  td .notes:hover{border-color:var(--line)}
+  td select{min-width:150px;max-width:280px}
+  .suggest-badge{display:inline-block;font-size:10px;font-weight:700;color:var(--warn);
+    background:var(--suggest);border:1px solid var(--suggest-line);border-radius:5px;padding:1px 5px;margin-left:6px;vertical-align:middle}
+  tr.suggested td.proj select{background:var(--suggest);border-color:var(--suggest-line)}
+  .muted{color:var(--muted)}
+  .empty{padding:48px 20px;text-align:center;color:var(--muted)}
+  .empty svg{opacity:.5;margin-bottom:10px}
+  .totals{display:flex;gap:18px;align-items:center;padding:12px 16px;background:#f3f5f8;font-size:13px}
+  .totals b{font-variant-numeric:tabular-nums}
+  /* modal */
+  .modal-bg{position:fixed;inset:0;background:rgba(20,26,38,.45);display:none;align-items:flex-start;
+    justify-content:center;z-index:100;padding:40px 16px;overflow:auto}
+  .modal-bg.open{display:flex}
+  .modal{background:#fff;border-radius:14px;width:100%;max-width:680px;box-shadow:0 20px 60px rgba(16,24,40,.3)}
+  .modal h2{margin:0;padding:18px 20px;border-bottom:1px solid var(--line);font-size:16px}
+  .modal .body{padding:18px 20px}
+  .modal .foot{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
+  .proj-card{border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px}
+  .proj-card .top{display:flex;align-items:center;gap:10px}
+  .proj-card .name{font-weight:600;flex:1}
+  .proj-card .meta{font-size:12px;color:var(--muted);margin-top:6px;display:flex;gap:16px;flex-wrap:wrap}
+  .proj-card .meta .k{font-weight:600;color:#475067}
+  .addform{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:6px}
+  .addform .full{grid-column:1/3}
+  .addform label{font-size:11.5px;color:var(--muted);font-weight:600;display:block;margin-bottom:3px}
+  .addform input{width:100%}
+  .hint{font-size:11.5px;color:var(--muted);margin-top:3px}
+  .help{background:var(--accent-soft);border:1px solid #cfe0ff;border-radius:10px;padding:12px 14px;font-size:12.5px;color:#274b8e;margin-bottom:16px}
+  .help summary{cursor:pointer;font-weight:600}
+  .help ol{margin:8px 0 0;padding-left:20px}
+  .help code{background:#fff;padding:1px 5px;border-radius:4px;border:1px solid #cfe0ff}
+  .toggle{display:flex;align-items:center;gap:6px;font-size:12.5px;color:var(--muted)}
+</style>
+</head>
+<body>
+<header>
+  <h1>TimeSheet <span class="dot">Segéd</span></h1>
+  <span class="status" id="authStatus">Nincs bejelentkezve</span>
+  <div class="grow"></div>
+  <button id="btnProjects" class="sm">Projektek kezelése</button>
+  <button id="btnSettings" class="sm ghost">⚙︎ Beállítások</button>
+  <button id="btnSignin" class="sm">Bejelentkezés Google-lel</button>
+</header>
+
+<main>
+  <div class="help">
+    <details id="setupHelp">
+      <summary>Első használat: Google OAuth beállítása (egyszeri, ~5 perc)</summary>
+      <ol>
+        <li>Menj a <code>console.cloud.google.com</code> oldalra, hozz létre (vagy válassz) egy projektet.</li>
+        <li><b>APIs &amp; Services → Library</b>: kapcsold be a <code>Google Calendar API</code>-t.</li>
+        <li><b>APIs &amp; Services → OAuth consent screen</b>: External, töltsd ki a kötelező mezőket, add hozzá magad <b>Test user</b>-ként.</li>
+        <li><b>Credentials → Create credentials → OAuth client ID → Web application</b>.
+            Az <b>Authorized JavaScript origins</b>-hoz add hozzá ezt az oldalt (pl. <code id="originHint">a saját URL-ed</code>).</li>
+        <li>Másold ki a <b>Client ID</b>-t, és illeszd be a ⚙︎ Beállítások alá. Ez nem titok, de itt a böngésződben tárolódik — a repo-ba semmi nem kerül.</li>
+      </ol>
+      <p style="margin:8px 0 0">A naptáradból letöltött adatok <b>kizárólag a böngésződben</b> maradnak (memória + localStorage). Semmi nem töltődik fel sehova.</p>
+    </details>
+  </div>
+
+  <div class="bar" id="settingsBar" style="display:none">
+    <div class="field" style="flex:1;min-width:280px">
+      <label>Google OAuth Client ID</label>
+      <input id="clientId" placeholder="xxxxx.apps.googleusercontent.com" />
+    </div>
+    <div class="field">
+      <label>Naptár ID</label>
+      <input id="calendarId" value="primary" style="min-width:200px" />
+    </div>
+    <button id="saveSettings" class="primary">Mentés</button>
+  </div>
+
+  <div class="bar">
+    <div class="field">
+      <label>Kezdő dátum</label>
+      <input type="date" id="from" />
+    </div>
+    <div class="field">
+      <label>Záró dátum</label>
+      <input type="date" id="to" />
+    </div>
+    <button class="sm" data-range="week">Ez a hét</button>
+    <button class="sm" data-range="month">Ez a hónap</button>
+    <button class="sm" data-range="lastmonth">Előző hónap</button>
+    <div class="grow"></div>
+    <label class="toggle"><input type="checkbox" id="skipAllDay" checked /> Egész napos kihagyása</label>
+    <label class="toggle"><input type="checkbox" id="skipDeclined" checked /> Visszautasítottak kihagyása</label>
+    <button id="btnLoad" class="primary">Naptár betöltése</button>
+  </div>
+
+  <div class="tablewrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Dátum</th><th>Nap</th><th>Hónap</th><th>Hét</th>
+          <th>Leírás (Task_leiras)</th><th class="num">Óra</th>
+          <th>Projekt</th><th>Task_id</th><th>Tudnivalók</th>
+        </tr>
+      </thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="emptyState" class="empty">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M16 2v4M8 2v4M3 9h18"/></svg>
+      <div>Még nincs betöltött esemény. Állítsd be a Client ID-t, jelentkezz be, válassz dátumtartományt, majd <b>Naptár betöltése</b>.</div>
+    </div>
+    <div class="totals" id="totals" style="display:none">
+      <span>Sorok: <b id="rowCount">0</b></span>
+      <span>Összes óra: <b id="hourSum">0</b></span>
+      <span class="muted" id="unassigned"></span>
+      <div class="grow"></div>
+      <label class="toggle"><input type="checkbox" id="inclHeader" /> Fejléccel másol</label>
+      <button id="btnCopy" class="sm">⧉ Vágólapra (beillesztéshez)</button>
+      <button id="btnXlsx" class="sm primary">⬇ Excel (.xlsx)</button>
+    </div>
+  </div>
+</main>
+
+<!-- Projects modal -->
+<div class="modal-bg" id="projModal">
+  <div class="modal">
+    <h2>Projektek kezelése</h2>
+    <div class="body">
+      <div id="projList"></div>
+      <div class="proj-card" style="background:#fafbfc">
+        <div style="font-weight:600;margin-bottom:8px">+ Új projekt kód</div>
+        <div class="addform">
+          <div class="full">
+            <label>Projekt megnevezés (ahogy az Excelbe kerül)</label>
+            <input id="np_name" placeholder="pl. Projekt - NNGYK - Weboldal újratervezés (634)" />
+          </div>
+          <div>
+            <label>Task_id-k (vesszővel)</label>
+            <input id="np_tasks" placeholder="pl. TechLead, Dev, Review" />
+          </div>
+          <div>
+            <label>Tag-ek a felajánláshoz (vesszővel)</label>
+            <input id="np_tags" placeholder="pl. NNGYK, Weboldal" />
+          </div>
+          <div class="full hint">A tag-ek alapján: ha egy meeting nevében szerepel valamelyik tag, az app automatikusan felajánlja ezt a projektet az adott sorhoz.</div>
+        </div>
+        <div style="margin-top:10px"><button id="np_add" class="primary sm">Projekt hozzáadása</button></div>
+      </div>
+    </div>
+    <div class="foot">
+      <button class="ghost" data-close>Bezárás</button>
+    </div>
+  </div>
+</div>
+
+<script>
+//// ---------- State & persistence ----------
+const LS = {
+  projects:'ts_projects', assignments:'ts_assignments',
+  clientId:'ts_clientId', calendarId:'ts_calendarId'
+};
+const state = {
+  projects: load(LS.projects, []),
+  assignments: load(LS.assignments, {}),  // key -> {projectId, taskId}
+  rows: [],
+  clientId: localStorage.getItem(LS.clientId) || '',
+  calendarId: localStorage.getItem(LS.calendarId) || 'primary',
+};
+function load(k, def){ try{ return JSON.parse(localStorage.getItem(k)) ?? def }catch{ return def } }
+function save(k, v){ localStorage.setItem(k, JSON.stringify(v)) }
+function uid(){ return 'p'+Math.random().toString(36).slice(2,9) }
+
+//// ---------- Date helpers (Hungarian timesheet format) ----------
+const HU_DAYS = ['Vasárnap','Hétfő','Kedd','Szerda','Csütörtök','Péntek','Szombat'];
+const pad = n => String(n).padStart(2,'0');
+const fmtDate  = d => `${d.getFullYear()}.${pad(d.getMonth()+1)}.${pad(d.getDate())}`;
+const fmtMonth = d => `${d.getFullYear()}.${pad(d.getMonth()+1)}`;
+const dayName  = d => HU_DAYS[d.getDay()];
+function isoWeek(d){
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dn = (t.getUTCDay()+6)%7;
+  t.setUTCDate(t.getUTCDate()-dn+3);
+  const ft = new Date(Date.UTC(t.getUTCFullYear(),0,4));
+  const fn = (ft.getUTCDay()+6)%7;
+  ft.setUTCDate(ft.getUTCDate()-fn+3);
+  return 1 + Math.round((t-ft)/(7*24*3600*1000));
+}
+const round2 = x => Math.round(x*100)/100;
+const huNum  = x => String(x).replace('.', ','); // for clipboard paste into hu-locale Excel
+function toInputDate(d){ return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}` }
+
+//// ---------- Assignment keys (drives recurring inheritance + persistence) ----------
+const normSummary = s => (s||'').trim().toLowerCase();
+function assignKey(ev){
+  // recurring instances share recurringEventId -> setting one inherits to all siblings
+  return ev.recurringEventId ? ('r:'+ev.recurringEventId) : ('s:'+normSummary(ev.summary));
+}
+
+//// ---------- Tag suggestion ----------
+function suggestProject(summary){
+  const s = normSummary(summary);
+  for(const p of state.projects){
+    for(const tag of (p.tags||[])){
+      const t = tag.trim().toLowerCase();
+      if(t && s.includes(t)) return p.id;
+    }
+  }
+  return null;
+}
+
+//// ---------- Google auth ----------
+let tokenClient = null, accessToken = null, tokenExpiry = 0;
+function initToken(){
+  if(!state.clientId){ alert('Előbb add meg a Google OAuth Client ID-t a ⚙︎ Beállítások alatt.'); openSettings(); return false; }
+  if(typeof google === 'undefined' || !google.accounts){ alert('A Google library még tölt, próbáld újra 1 másodperc múlva.'); return false; }
+  tokenClient = google.accounts.oauth2.initTokenClient({
+    client_id: state.clientId,
+    scope: 'https://www.googleapis.com/auth/calendar.readonly',
+    callback: (resp)=>{
+      if(resp.error){ setAuth('Hiba: '+resp.error); return; }
+      accessToken = resp.access_token;
+      tokenExpiry = Date.now() + (resp.expires_in||3600)*1000;
+      setAuth('Bejelentkezve ✓');
+      document.getElementById('btnSignin').textContent = 'Kijelentkezés';
+    }
+  });
+  return true;
+}
+function signIn(){
+  if(accessToken && Date.now() < tokenExpiry){ // already signed in -> sign out
+    accessToken=null; tokenExpiry=0; setAuth('Nincs bejelentkezve');
+    document.getElementById('btnSignin').textContent='Bejelentkezés Google-lel'; return;
+  }
+  if(!initToken()) return;
+  tokenClient.requestAccessToken({prompt:'consent'});
+}
+function ensureToken(){
+  return new Promise((resolve,reject)=>{
+    if(accessToken && Date.now() < tokenExpiry-60000) return resolve(accessToken);
+    if(!initToken()) return reject(new Error('no client id'));
+    tokenClient.callback = (resp)=>{
+      if(resp.error) return reject(new Error(resp.error));
+      accessToken = resp.access_token;
+      tokenExpiry = Date.now() + (resp.expires_in||3600)*1000;
+      setAuth('Bejelentkezve ✓');
+      document.getElementById('btnSignin').textContent='Kijelentkezés';
+      resolve(accessToken);
+    };
+    tokenClient.requestAccessToken({prompt: accessToken?'':'consent'});
+  });
+}
+function setAuth(t){ document.getElementById('authStatus').innerHTML = t.includes('✓')?`<b>${t}</b>`:t; }
+
+//// ---------- Calendar fetch ----------
+async function loadCalendar(){
+  const fromV = document.getElementById('from').value;
+  const toV   = document.getElementById('to').value;
+  if(!fromV || !toV){ alert('Adj meg dátumtartományt.'); return; }
+  const timeMin = new Date(fromV+'T00:00:00');
+  const timeMax = new Date(toV+'T23:59:59');
+  let token;
+  try{ token = await ensureToken(); }catch(e){ return; }
+
+  const params = new URLSearchParams({
+    timeMin: timeMin.toISOString(), timeMax: timeMax.toISOString(),
+    singleEvents:'true', orderBy:'startTime', maxResults:'2500'
+  });
+  const cal = encodeURIComponent(state.calendarId||'primary');
+  setAuth('Naptár betöltése…');
+  let items=[], pageToken=null;
+  try{
+    do{
+      const url = `https://www.googleapis.com/calendar/v3/calendars/${cal}/events?`+params+(pageToken?`&pageToken=${pageToken}`:'');
+      const res = await fetch(url, {headers:{Authorization:'Bearer '+token}});
+      if(!res.ok){ const t=await res.text(); throw new Error(res.status+' '+t); }
+      const data = await res.json();
+      items = items.concat(data.items||[]);
+      pageToken = data.nextPageToken;
+    }while(pageToken);
+  }catch(e){ setAuth('Hiba'); alert('Naptár betöltési hiba:\n'+e.message); return; }
+  setAuth('Bejelentkezve ✓');
+
+  const skipAllDay = document.getElementById('skipAllDay').checked;
+  const skipDeclined = document.getElementById('skipDeclined').checked;
+  const rows=[];
+  for(const ev of items){
+    if(ev.status==='cancelled') continue;
+    const isAllDay = !ev.start?.dateTime;
+    if(isAllDay && skipAllDay) continue;
+    if(skipDeclined && (ev.attendees||[]).some(a=>a.self && a.responseStatus==='declined')) continue;
+    let start, end, hours;
+    if(isAllDay){ start=new Date(ev.start.date+'T00:00:00'); end=start; hours=0; }
+    else{
+      start=new Date(ev.start.dateTime); end=new Date(ev.end.dateTime);
+      hours=round2((end-start)/3600000);
+    }
+    rows.push({
+      id: ev.id, key: assignKey(ev),
+      summary: ev.summary || '(névtelen esemény)',
+      start, hours,
+      date: fmtDate(start), day: dayName(start), month: fmtMonth(start), week: isoWeek(start),
+      notes: '',
+      suggested: suggestProject(ev.summary),
+    });
+  }
+  rows.sort((a,b)=>a.start-b.start);
+  state.rows = rows;
+  render();
+}
+
+//// ---------- Effective assignment ----------
+function effProject(row){ return state.assignments[row.key]?.projectId ?? row.suggested ?? '' }
+function effTask(row){ return state.assignments[row.key]?.taskId ?? '' }
+function isSuggested(row){ return !state.assignments[row.key]?.projectId && !!row.suggested }
+function projectById(id){ return state.projects.find(p=>p.id===id) }
+
+//// ---------- Render table ----------
+function render(){
+  const tb = document.getElementById('rows');
+  const empty = document.getElementById('emptyState');
+  const totals = document.getElementById('totals');
+  tb.innerHTML='';
+  if(!state.rows.length){ empty.style.display='block'; totals.style.display='none'; return; }
+  empty.style.display='none'; totals.style.display='flex';
+
+  let sum=0, unassigned=0;
+  state.rows.forEach((row, i)=>{
+    sum += Number(row.hours)||0;
+    const projId = effProject(row);
+    if(!projId) unassigned++;
+    const proj = projectById(projId);
+    const tr = document.createElement('tr');
+    if(isSuggested(row)) tr.className='suggested';
+
+    // project options
+    const projOpts = ['<option value="">— válassz —</option>']
+      .concat(state.projects.map(p=>`<option value="${p.id}" ${p.id===projId?'selected':''}>${esc(p.name)}</option>`))
+      .concat('<option value="__new__">+ Új projekt…</option>').join('');
+
+    // task options
+    let taskOpts = '<option value="">—</option>';
+    if(proj && (proj.taskIds||[]).length){
+      taskOpts += proj.taskIds.map(t=>`<option ${t===effTask(row)?'selected':''}>${esc(t)}</option>`).join('');
+    }
+
+    tr.innerHTML = `
+      <td>${row.date}</td>
+      <td>${row.day}</td>
+      <td>${row.month}</td>
+      <td class="num">${row.week}</td>
+      <td><input class="desc" data-i="${i}" data-f="summary" value="${esc(row.summary)}" /></td>
+      <td class="num"><input class="hrs" type="number" step="0.25" min="0" data-i="${i}" data-f="hours" value="${row.hours}" /></td>
+      <td class="proj"><select data-i="${i}" data-sel="proj">${projOpts}</select>${isSuggested(row)?'<span class="suggest-badge" title="Tag alapján felajánlva">javasolt</span>':''}</td>
+      <td><select data-i="${i}" data-sel="task" ${proj&&(proj.taskIds||[]).length?'':'disabled'}>${taskOpts}</select></td>
+      <td><input class="notes" data-i="${i}" data-f="notes" value="${esc(row.notes)}" placeholder="—" /></td>`;
+    tb.appendChild(tr);
+  });
+
+  document.getElementById('rowCount').textContent = state.rows.length;
+  document.getElementById('hourSum').textContent = huNum(round2(sum));
+  document.getElementById('unassigned').textContent = unassigned ? `· ${unassigned} sor projekt nélkül` : '· minden sor kitöltve ✓';
+}
+function esc(s){ return String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])) }
+
+//// ---------- Row interactions ----------
+document.getElementById('rows').addEventListener('input', e=>{
+  const el=e.target, i=+el.dataset.i;
+  if(el.dataset.f){ // text/number inline edits
+    state.rows[i][el.dataset.f] = el.dataset.f==='hours' ? (parseFloat(el.value)||0) : el.value;
+    if(el.dataset.f==='hours'){ recalcTotals(); }
+  }
+});
+document.getElementById('rows').addEventListener('change', e=>{
+  const el=e.target, i=+el.dataset.i;
+  if(el.dataset.sel==='proj'){
+    if(el.value==='__new__'){ openProjects(state.rows[i]); el.value=effProject(state.rows[i]); return; }
+    setAssignment(state.rows[i].key, {projectId: el.value, taskId: ''});
+    render();
+  }
+  if(el.dataset.sel==='task'){
+    const cur = state.assignments[state.rows[i].key] || {projectId:effProject(state.rows[i])};
+    setAssignment(state.rows[i].key, {projectId:cur.projectId, taskId: el.value});
+  }
+});
+function setAssignment(key, val){
+  state.assignments[key] = val;
+  save(LS.assignments, state.assignments);
+}
+function recalcTotals(){
+  let sum=0; state.rows.forEach(r=>sum+=Number(r.hours)||0);
+  document.getElementById('hourSum').textContent = huNum(round2(sum));
+}
+
+//// ---------- Export columns (exact order of the company sheet) ----------
+const HEADERS = ['Dátum','Hét napja','Hónap','Hét','Projekt','Task','Task_leiras','Oraszam','Task_id','Tudnivalók'];
+function exportRows(){
+  return state.rows.map(r=>{
+    const p = projectById(effProject(r));
+    return [ r.date, r.day, r.month, r.week, p?p.name:'', '', r.summary, round2(r.hours), effTask(r), r.notes ];
+  });
+}
+function buildXlsx(){
+  const aoa = [HEADERS, ...exportRows()];
+  const ws = XLSX.utils.aoa_to_sheet(aoa);
+  ws['!cols'] = [{wch:12},{wch:11},{wch:9},{wch:6},{wch:42},{wch:8},{wch:40},{wch:8},{wch:12},{wch:24}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'timesheet');
+  const first = state.rows[0]?.month?.replace('.','_') || 'timesheet';
+  XLSX.writeFile(wb, `timesheet_${first}.xlsx`);
+}
+async function copyClipboard(){
+  const incl = document.getElementById('inclHeader').checked;
+  const lines = exportRows().map(r=>{
+    const c=[...r]; c[7]=huNum(c[7]); // hours with comma for hu Excel
+    return c.join('\t');
+  });
+  if(incl) lines.unshift(HEADERS.join('\t'));
+  const text = lines.join('\n');
+  try{ await navigator.clipboard.writeText(text); flash('btnCopy','✓ Másolva!'); }
+  catch{ // fallback
+    const ta=document.createElement('textarea'); ta.value=text; document.body.appendChild(ta);
+    ta.select(); document.execCommand('copy'); ta.remove(); flash('btnCopy','✓ Másolva!');
+  }
+}
+function flash(id,txt){ const b=document.getElementById(id); const o=b.textContent; b.textContent=txt; setTimeout(()=>b.textContent=o,1500); }
+
+//// ---------- Projects modal ----------
+let newProjCallbackRow = null;
+function openProjects(forRow){
+  newProjCallbackRow = forRow||null;
+  renderProjects();
+  document.getElementById('projModal').classList.add('open');
+}
+function closeModal(){ document.getElementById('projModal').classList.remove('open'); newProjCallbackRow=null; }
+function renderProjects(){
+  const list = document.getElementById('projList');
+  if(!state.projects.length){ list.innerHTML='<p class="muted">Még nincs projekt. Adj hozzá egyet lent.</p>'; return; }
+  list.innerHTML = state.projects.map(p=>`
+    <div class="proj-card" data-id="${p.id}">
+      <div class="top">
+        <span class="name">${esc(p.name)}</span>
+        <button class="sm ghost" data-edit="${p.id}">Szerkeszt</button>
+        <button class="sm ghost" data-del="${p.id}">Törlés</button>
+      </div>
+      <div class="meta">
+        <span><span class="k">Task_id-k:</span> ${(p.taskIds||[]).map(esc).join(', ')||'<span class="muted">nincs</span>'}</span>
+        <span><span class="k">Tag-ek:</span> ${(p.tags||[]).map(esc).join(', ')||'<span class="muted">nincs</span>'}</span>
+      </div>
+    </div>`).join('');
+}
+function addProject(){
+  const name=document.getElementById('np_name').value.trim();
+  if(!name){ alert('Adj meg projekt megnevezést.'); return; }
+  const tasks=splitList(document.getElementById('np_tasks').value);
+  const tags=splitList(document.getElementById('np_tags').value);
+  const p={id:uid(), name, taskIds:tasks, tags};
+  state.projects.push(p); save(LS.projects, state.projects);
+  document.getElementById('np_name').value=''; document.getElementById('np_tasks').value=''; document.getElementById('np_tags').value='';
+  // re-evaluate suggestions for already-loaded rows
+  state.rows.forEach(r=>{ if(!state.assignments[r.key]?.projectId) r.suggested = suggestProject(r.summary); });
+  if(newProjCallbackRow){ setAssignment(newProjCallbackRow.key,{projectId:p.id,taskId:''}); }
+  renderProjects(); render();
+}
+const splitList = s => s.split(',').map(x=>x.trim()).filter(Boolean);
+
+document.getElementById('projList').addEventListener('click', e=>{
+  const del=e.target.dataset.del, ed=e.target.dataset.edit;
+  if(del){
+    if(!confirm('Biztosan törlöd ezt a projektet?')) return;
+    state.projects = state.projects.filter(p=>p.id!==del); save(LS.projects, state.projects);
+    // clear assignments pointing to it
+    Object.keys(state.assignments).forEach(k=>{ if(state.assignments[k].projectId===del) delete state.assignments[k]; });
+    save(LS.assignments, state.assignments);
+    state.rows.forEach(r=>{ if(!state.assignments[r.key]?.projectId) r.suggested=suggestProject(r.summary); });
+    renderProjects(); render();
+  }
+  if(ed){
+    const p=projectById(ed); if(!p) return;
+    const name=prompt('Projekt megnevezés:', p.name); if(name===null) return;
+    const tasks=prompt('Task_id-k (vesszővel):', (p.taskIds||[]).join(', ')); if(tasks===null) return;
+    const tags=prompt('Tag-ek (vesszővel):', (p.tags||[]).join(', ')); if(tags===null) return;
+    p.name=name.trim()||p.name; p.taskIds=splitList(tasks); p.tags=splitList(tags);
+    save(LS.projects, state.projects);
+    state.rows.forEach(r=>{ if(!state.assignments[r.key]?.projectId) r.suggested=suggestProject(r.summary); });
+    renderProjects(); render();
+  }
+});
+
+//// ---------- Settings ----------
+function openSettings(){ const b=document.getElementById('settingsBar'); b.style.display='flex'; document.getElementById('clientId').focus(); }
+
+//// ---------- Date range presets ----------
+function setRange(kind){
+  const now=new Date(); let from,to;
+  if(kind==='week'){
+    const dn=(now.getDay()+6)%7; from=new Date(now); from.setDate(now.getDate()-dn);
+    to=new Date(from); to.setDate(from.getDate()+6);
+  }else if(kind==='month'){
+    from=new Date(now.getFullYear(),now.getMonth(),1); to=new Date(now.getFullYear(),now.getMonth()+1,0);
+  }else if(kind==='lastmonth'){
+    from=new Date(now.getFullYear(),now.getMonth()-1,1); to=new Date(now.getFullYear(),now.getMonth(),0);
+  }
+  document.getElementById('from').value=toInputDate(from);
+  document.getElementById('to').value=toInputDate(to);
+}
+
+//// ---------- Wire up ----------
+document.getElementById('btnSignin').addEventListener('click', signIn);
+document.getElementById('btnLoad').addEventListener('click', loadCalendar);
+document.getElementById('btnProjects').addEventListener('click', ()=>openProjects());
+document.getElementById('btnSettings').addEventListener('click', ()=>{
+  const b=document.getElementById('settingsBar'); b.style.display = b.style.display==='none'?'flex':'none';
+});
+document.getElementById('saveSettings').addEventListener('click', ()=>{
+  state.clientId=document.getElementById('clientId').value.trim();
+  state.calendarId=document.getElementById('calendarId').value.trim()||'primary';
+  localStorage.setItem(LS.clientId, state.clientId);
+  localStorage.setItem(LS.calendarId, state.calendarId);
+  tokenClient=null; accessToken=null; // re-init with new id
+  flash('saveSettings','✓ Mentve');
+});
+document.getElementById('np_add').addEventListener('click', addProject);
+document.getElementById('btnXlsx').addEventListener('click', buildXlsx);
+document.getElementById('btnCopy').addEventListener('click', copyClipboard);
+document.querySelectorAll('[data-range]').forEach(b=>b.addEventListener('click',()=>setRange(b.dataset.range)));
+document.getElementById('projModal').addEventListener('click', e=>{
+  if(e.target.id==='projModal' || e.target.dataset.close!==undefined) closeModal();
+});
+
+//// ---------- Init ----------
+document.getElementById('clientId').value=state.clientId;
+document.getElementById('calendarId').value=state.calendarId;
+document.getElementById('originHint').textContent = location.origin;
+if(!state.clientId){ document.getElementById('setupHelp').open=true; }
+setRange('month');
+render();
+</script>
+</body>
+</html>
