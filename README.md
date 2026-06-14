@@ -22,6 +22,13 @@ táblával (beilleszthető a céges Excelbe).
   példányra öröklődik (`recurringEventId` alapján). Az egyszer beállított hozzárendelések
   meg is maradnak újratöltés után.
 - Egész napos / visszautasított események kihagyása.
+- **Heti nézet**: hét-választó (ez a hét, előző hét, … hétszámmal); alapértelmezés az aktuális hét.
+- **Napi csoportosítás** napi összóra-összegzővel (8 óra felett pirossal).
+- **Óra-kerekítés**: a meeting hossza felfelé kerekül a legközelebbi 0,25-re, minimum 0,5 (0,5 / 0,75 / 1 / …).
+- **Recurring jelölés** (↻) és **kézi sor** jelölés.
+- **Javaslat elfogadása egy gombbal** (✓ elfogad).
+- **Sor inaktiválása** (bal oldali pipa) → kimarad az exportból és az összegekből.
+- **Napi kézi sor hozzáadása** (nem kerül vissza a naptárba).
 - Export: `.xlsx` (SheetJS) + vágólap (hu-locale tizedesvesszővel a sima beillesztéshez).
 
 ## Egyszeri Google OAuth beállítás (~5 perc)
