@@ -18,7 +18,7 @@
   body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
     background:var(--bg);color:var(--ink);font-size:14px;line-height:1.45}
   header{background:var(--panel);border-bottom:1px solid var(--line);padding:14px 20px;
-    display:flex;align-items:center;gap:14px;flex-wrap:wrap;position:sticky;top:0;z-index:30}
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap}
   header h1{font-size:17px;margin:0;font-weight:650;letter-spacing:-.2px}
   header h1 .dot{color:var(--accent)}
   .grow{flex:1}
@@ -46,7 +46,7 @@
   .tablewrap{background:var(--panel);border:1px solid var(--line);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
   table{border-collapse:collapse;width:100%}
   th,td{padding:8px 10px;text-align:left;border-bottom:1px solid var(--line);vertical-align:middle;white-space:nowrap}
-  thead th{position:sticky;top:var(--hh,64px);background:#f3f5f8;font-size:11.5px;text-transform:uppercase;
+  thead th{position:sticky;top:0;background:#f3f5f8;font-size:11.5px;text-transform:uppercase;
     letter-spacing:.3px;color:#5b6373;font-weight:650;z-index:10}
   tbody tr:nth-child(even){background:var(--row-alt)}
   tbody tr:hover{background:#f0f5ff}
@@ -721,15 +721,6 @@ buildWeekOptions();
 document.getElementById('weekSel').selectedIndex=0; // default: current week
 applyWeek(document.getElementById('weekSel').value);
 render();
-
-//// ---------- Sticky header offset (keeps table head below the page header) ----------
-function syncHeaderHeight(){
-  const h=document.querySelector('header').offsetHeight;
-  document.documentElement.style.setProperty('--hh', h+'px');
-}
-window.addEventListener('resize', syncHeaderHeight);
-new ResizeObserver(syncHeaderHeight).observe(document.querySelector('header'));
-syncHeaderHeight();
 </script>
 </body>
 </html>
